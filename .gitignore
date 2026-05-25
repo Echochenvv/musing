@@ -1,0 +1,53 @@
+# Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
+
+# dependencies
+node_modules/
+
+# Expo
+.expo/
+dist/
+web-build/
+expo-env.d.ts
+
+# Native
+.kotlin/
+*.orig.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+
+# Metro
+.metro-health-check*
+
+# debug
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+
+# macOS
+.DS_Store
+*.pem
+
+# env files — Musing has no .env support, but block any rogue file just in case
+.env
+.env.*
+
+# typescript
+*.tsbuildinfo
+
+# generated native folders
+/ios
+/android
+
+# local debug screenshots (root only, preserve assets/*.png)
+/*.png
+
+# work-in-progress / backups
+.work/
+assets/.backup/
+
+# build artifacts (不入 git)
+Musing-*.apk
+intro.html
