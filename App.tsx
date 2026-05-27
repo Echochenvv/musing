@@ -314,11 +314,13 @@ function AppInner() {
 
   // SWO-371 · 首页 focus 刷新 issue 列表：
   // mount 时 + AppState active 时 + 从详情/设置页返回主屏时 调 API 静默更新
+  // ① 更新已有 thought 的 issueStatus ② 追加网页端新建的 issue 为新 thought
   const refreshIssuesFromApi = useCallback(async () => {
     const client = multicaClient;
     if (!client) return;
     try {
       const issues = await client.listIssues();
+      const now = Date.now();
       setThoughts((prev) => {
         let changed = false;
         const next = prev.map((t) => {
@@ -329,10 +331,38 @@ function AppInner() {
           if (!match) return t;
           if (match.status !== t.issueStatus) {
             changed = true;
-            return { ...t, issueStatus: match.status, lastSyncedAt: Date.now() };
+            return { ...t, issueStatus: match.status, lastSyncedAt: now };
           }
-          return t;
+          return { ...t, lastSyncedAt: now };
         });
+
+        // 追加本地不存在的 issue（网页端新建的）为新 thought
+        const localIds = new Set(
+          prev.map((t) => t.issueId).filter(Boolean),
+        );
+        const localIdentifiers = new Set(
+          prev.map((t) => t.issueIdentifier).filter(Boolean),
+        );
+        const newThoughts: Thought[] = issues
+          .filter((i) => !localIds.has(i.id) && !localIdentifiers.has(i.identifier))
+          .map((i) => ({
+            id: `remote-${i.id}`,
+            createdAt: now,
+            durationMs: 0,
+            audioUri: '',
+            text: i.title,
+            sendStatus: 'sent' as const,
+            issueId: i.id,
+            issueIdentifier: i.identifier,
+            issueStatus: i.status,
+            lastSyncedAt: now,
+          }));
+
+        if (newThoughts.length > 0) {
+          changed = true;
+          next.unshift(...newThoughts);
+        }
+
         if (changed) {
           AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(next)).catch(() => {});
         }
