@@ -207,6 +207,23 @@ export class MulticaClient {
       .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
   }
 
+  /** 拉 issue 列表 · 首页 focus 时调用刷新卡片状态 */
+  async listIssues(): Promise<MulticaIssue[]> {
+    const data = await this.request<any>('GET', '/api/issues', {
+      label: 'listIssues',
+    });
+    const arr: any[] = Array.isArray(data) ? data : (data?.issues ?? []);
+    return arr.map((d) => ({
+      id: d.id,
+      identifier: d.identifier,
+      number: d.number,
+      title: d.title,
+      status: d.status,
+      assigneeId: d.assignee_id ?? null,
+      assigneeType: d.assignee_type ?? null,
+    }));
+  }
+
   /** 发评论 · 详情页底部追问框调用；成功后调用方应 re-listComments 刷新 */
   async addComment(
     identifier: string,

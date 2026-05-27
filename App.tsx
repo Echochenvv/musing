@@ -14,6 +14,7 @@ import {
   Keyboard,
   Animated,
   Easing,
+  AppState,
 } from 'react-native';
 import {
   SafeAreaProvider,
@@ -310,6 +311,60 @@ function AppInner() {
     cfg?.multicaDefaultAssigneeId,
     cfg?.multicaDefaultAssigneeType,
   ]);
+
+  // SWO-371 · 首页 focus 刷新 issue 列表：
+  // mount 时 + AppState active 时 + 从详情/设置页返回主屏时 调 API 静默更新
+  const refreshIssuesFromApi = useCallback(async () => {
+    const client = multicaClient;
+    if (!client) return;
+    try {
+      const issues = await client.listIssues();
+      setThoughts((prev) => {
+        let changed = false;
+        const next = prev.map((t) => {
+          if (!t.issueId && !t.issueIdentifier) return t;
+          const match = issues.find(
+            (i) => i.id === t.issueId || i.identifier === t.issueIdentifier,
+          );
+          if (!match) return t;
+          if (match.status !== t.issueStatus) {
+            changed = true;
+            return { ...t, issueStatus: match.status, lastSyncedAt: Date.now() };
+          }
+          return t;
+        });
+        if (changed) {
+          AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(next)).catch(() => {});
+        }
+        return changed ? next : prev;
+      });
+    } catch {
+      // 静默失败，不阻塞用户
+    }
+  }, [multicaClient]);
+
+  // mount 时刷新一次
+  useEffect(() => {
+    refreshIssuesFromApi();
+  }, [refreshIssuesFromApi]);
+
+  // AppState: 从后台回前台时刷新
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') refreshIssuesFromApi();
+    });
+    return () => sub.remove();
+  }, [refreshIssuesFromApi]);
+
+  // 从详情页/设置页返回主屏时刷新（viewingIdentifier/viewingSettings 回 null/false）
+  const prevViewingRef = useRef(false);
+  useEffect(() => {
+    const isViewing = !!(viewingIdentifier || viewingSettings || viewingLab);
+    if (prevViewingRef.current && !isViewing) {
+      refreshIssuesFromApi();
+    }
+    prevViewingRef.current = isViewing;
+  }, [viewingIdentifier, viewingSettings, viewingLab, refreshIssuesFromApi]);
 
   const sendToMultica = async (t: Thought) => {
     const client = multicaClient;
